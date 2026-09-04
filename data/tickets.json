@@ -1,0 +1,22 @@
+[
+  {
+    "id": "TCK-001",
+    "text": "I was charged twice for my subscription this month. Can you fix this and refund the extra charge?"
+  },
+  {
+    "id": "TCK-002",
+    "text": "The API keeps timing out whenever I send a batch of events. It was working fine last week."
+  },
+  {
+    "id": "TCK-003",
+    "text": "How do I reset my password? I never received the reset email."
+  },
+  {
+    "id": "TCK-004",
+    "text": "I want to cancel my subscription right away and make sure I'm not charged again."
+  },
+  {
+    "id": "TCK-005",
+    "text": "You charged me for a plan I never signed up for, and now the API is throwing auth errors too. I need this fixed and I want to know the EXACT number of business days until my money is back in my account."
+  }
+]

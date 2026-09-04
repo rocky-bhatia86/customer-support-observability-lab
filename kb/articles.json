@@ -1,0 +1,74 @@
+[
+  {
+    "id": "KB-001",
+    "category": "billing",
+    "title": "Duplicate Charge Investigation",
+    "content": "If a customer reports being charged twice for the same subscription period, confirm the two charge IDs in the billing dashboard. If both charges reference the same billing cycle, the duplicate is refunded automatically by our payment processor. Advise the customer to check their statement in a few business days and contact us again if the duplicate charge has not been reversed."
+  },
+  {
+    "id": "KB-002",
+    "category": "billing",
+    "title": "Refund Policy Overview",
+    "content": "Refunds are issued for billing errors, accidental duplicate charges, and cancellations requested within the first 14 days of a new subscription. Approved refunds are returned to the original payment method. Processing times vary by bank and card network, so we ask customers to allow a few business days before following up."
+  },
+  {
+    "id": "KB-003",
+    "category": "billing",
+    "title": "Failed Payment Troubleshooting",
+    "content": "A failed payment is usually caused by an expired card, insufficient funds, or the card issuer declining the transaction for fraud review. Ask the customer to update their payment method in account settings and retry the charge. If the failure persists, escalate to the payments team."
+  },
+  {
+    "id": "KB-004",
+    "category": "billing",
+    "title": "Subscription Plan Changes",
+    "content": "Customers can upgrade or downgrade their plan at any time from account settings. Upgrades take effect immediately with a prorated charge for the remainder of the billing cycle. Downgrades take effect at the start of the next billing cycle."
+  },
+  {
+    "id": "KB-005",
+    "category": "billing",
+    "title": "Account Cancellation Process",
+    "content": "To cancel a subscription, the customer should go to account settings and select cancel subscription, or request cancellation via support. Access continues until the end of the current paid billing period. No further charges will occur after cancellation is confirmed."
+  },
+  {
+    "id": "KB-006",
+    "category": "how-to",
+    "title": "Resetting Your Password",
+    "content": "To reset a password, go to the login page and select forgot password. Enter the account email and a reset link will be sent. The link expires after 60 minutes. If no email arrives, check spam folders or confirm the email on file is correct."
+  },
+  {
+    "id": "KB-007",
+    "category": "how-to",
+    "title": "Resolving Login Problems",
+    "content": "Login problems are most often caused by an incorrect password, an expired session, or browser cookies blocking the login token. Ask the customer to clear cookies for the site or try an incognito window, then attempt login again."
+  },
+  {
+    "id": "KB-008",
+    "category": "how-to",
+    "title": "Exporting Your Data",
+    "content": "Data exports can be started from the account settings export tab. Exports are generated as a CSV and emailed to the account owner once ready, typically within a few minutes for small accounts."
+  },
+  {
+    "id": "KB-009",
+    "category": "bug",
+    "title": "API Request Timeouts",
+    "content": "API timeouts on the /v1/events endpoint are usually caused by large batch payloads exceeding the 30 second processing window. Recommend the customer reduce batch size to under 500 events per request and enable client-side retry with exponential backoff."
+  },
+  {
+    "id": "KB-010",
+    "category": "bug",
+    "title": "API Authentication Errors",
+    "content": "401 and 403 errors from the API are typically caused by an expired API key or a key missing the required scope. Ask the customer to regenerate their API key from the developer dashboard and confirm the key has the events:write scope."
+  },
+  {
+    "id": "KB-011",
+    "category": "bug",
+    "title": "Data Export Failures",
+    "content": "If a data export fails or never completes, check whether the account has more than 1 million rows, which requires the large-export queue. Advise the customer that large exports can take up to 24 hours and will arrive by email when ready."
+  },
+  {
+    "id": "KB-012",
+    "category": "how-to",
+    "title": "Managing Two-Factor Authentication",
+    "content": "Two-factor authentication can be enabled or disabled from the security tab in account settings. Disabling it requires re-entering the current password. Lost authenticator devices require identity verification through support before 2FA can be reset."
+  }
+]
