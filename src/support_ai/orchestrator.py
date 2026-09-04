@@ -40,22 +40,29 @@ class WorkflowRunner:
 
         last_draft_text = ""
         status = "ESCALATED_MAX_ITERATIONS"
+        # Failure B (context/token bloat): every retry's retrieved articles
+        # are appended here rather than replacing the previous iteration's,
+        # so later iterations feed a steadily growing context into the
+        # Drafter and Checker even though baseline behavior would just use
+        # the freshest retrieval each time.
+        accumulated_articles = []
 
         for iteration in range(1, self.config.max_agent_iterations + 1):
             retrieval = self._timed(
                 steps, iteration, "kb_retrieval", "retrieve",
-                lambda: self.retrieval_agent.retrieve(category_value, ticket.text),
+                lambda: self.retrieval_agent.retrieve(category_value, ticket.text, ticket.id),
             )
+            accumulated_articles = accumulated_articles + retrieval.articles
 
             draft = self._timed(
                 steps, iteration, "drafter", "draft",
-                lambda: self.drafter_agent.draft(ticket, category_value, retrieval.articles),
+                lambda: self.drafter_agent.draft(ticket, category_value, accumulated_articles),
             )
             last_draft_text = draft.text
 
             verdict = self._timed(
                 steps, iteration, "quality_checker", "check",
-                lambda: self.checker_agent.check(ticket, draft.text, retrieval.articles),
+                lambda: self.checker_agent.check(ticket, draft.text, accumulated_articles),
             )
 
             if verdict.verdict == "ACCEPT":
@@ -91,6 +98,8 @@ class WorkflowRunner:
             detail = f"category={result[0]}"
         elif action == "retrieve":
             detail = f"matched_ids={result.matched_ids}"
+            if result.retried:
+                detail += f" retried_after_error={result.error!r}"
         elif action == "draft":
             detail = f"chars={len(result.text)}"
         elif action == "check":

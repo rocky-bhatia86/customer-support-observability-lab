@@ -33,12 +33,21 @@ def load_articles() -> list[KBArticle]:
     return [KBArticle(**item) for item in raw]
 
 
-def search(category: str, query: str, top_k: int = 3) -> tuple[list[KBArticle], list[str]]:
+def search(
+    category: str, query: str, top_k: int = 3, simulate_error: bool = False,
+) -> tuple[list[KBArticle], list[str]]:
     """Returns (matched_articles, matched_ids), ranked by keyword overlap.
 
     Falls back to all articles in the category (unranked) if no keyword
     overlap is found, so callers always get *some* candidates to work with.
+
+    `simulate_error` lets a caller deterministically reproduce a transient
+    backend failure (used by the failure-scenarios lab branch) without any
+    randomness.
     """
+    if simulate_error:
+        raise KBSearchError("simulated transient KB backend failure")
+
     articles = load_articles()
     query_tokens = _tokenize(query)
 
