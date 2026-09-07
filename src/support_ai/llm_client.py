@@ -26,7 +26,7 @@ def call_llm(
     messages: list[dict],
     temperature: float | None = None,
 ) -> LLMResult:
-    client = OpenAI(api_key=config.api_key)
+    client = OpenAI(api_key=config.api_key, base_url=config.base_url)
     response = client.chat.completions.create(
         model=config.model_name,
         messages=messages,
