@@ -14,10 +14,10 @@ def test_kb_articles_load_and_search():
     assert all(a.category == "billing" for a in articles)
 
 
-def test_tickets_dataset_has_five_tickets():
+def test_tickets_dataset_has_six_tickets():
     tickets_path = Path(__file__).resolve().parents[1] / "data" / "tickets.json"
     tickets = json.loads(tickets_path.read_text())
-    assert len(tickets) == 5
+    assert len(tickets) == 6
     assert {t["id"] for t in tickets} == {
-        "TCK-001", "TCK-002", "TCK-003", "TCK-004", "TCK-005",
+        "TCK-001", "TCK-002", "TCK-003", "TCK-004", "TCK-005", "TCK-006",
     }

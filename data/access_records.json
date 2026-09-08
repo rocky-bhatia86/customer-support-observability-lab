@@ -1,0 +1,9 @@
+[
+  {
+    "account_id": "ACC-1003",
+    "locked": true,
+    "failed_login_attempts": 5,
+    "mfa_enabled": false,
+    "last_login": "2026-08-25T10:03:00Z"
+  }
+]

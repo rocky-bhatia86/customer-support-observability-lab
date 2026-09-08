@@ -12,6 +12,7 @@ Status = Literal["RESOLVED", "ESCALATED_MAX_ITERATIONS"]
 class Ticket:
     id: str
     text: str
+    account_id: str | None = None
 
 
 @dataclass
@@ -30,6 +31,35 @@ class RetrievalResult:
     matched_ids: list[str]
     error: str | None = None
     retried: bool = False
+
+
+@dataclass
+class AccountDataResult:
+    matched: bool
+    account_id: str | None = None
+    plan: str | None = None
+    subscription_status: str | None = None
+    recent_charges: list[dict] = field(default_factory=list)
+    refund_eligible_days: int | None = None
+
+
+@dataclass
+class ImpactResult:
+    matched: bool
+    incident_id: str | None = None
+    title: str | None = None
+    status: str | None = None
+    description: str | None = None
+
+
+@dataclass
+class AccessResult:
+    matched: bool
+    account_id: str | None = None
+    locked: bool = False
+    failed_login_attempts: int = 0
+    mfa_enabled: bool = False
+    last_login: str | None = None
 
 
 @dataclass
@@ -56,6 +86,7 @@ class WorkflowStep:
     elapsed_seconds: float
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    meta: dict = field(default_factory=dict)
 
 
 @dataclass

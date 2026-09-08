@@ -1,22 +1,32 @@
 [
   {
     "id": "TCK-001",
-    "text": "I was charged twice for my subscription this month. Can you fix this and refund the extra charge?"
+    "text": "I was charged twice for my subscription this month. Can you fix this and refund the extra charge?",
+    "account_id": "ACC-1001"
   },
   {
     "id": "TCK-002",
-    "text": "The API keeps timing out whenever I send a batch of events. It was working fine last week."
+    "text": "The API keeps timing out whenever I send a batch of events. It was working fine last week.",
+    "account_id": "ACC-1002"
   },
   {
     "id": "TCK-003",
-    "text": "How do I reset my password? I never received the reset email."
+    "text": "How do I reset my password? I never received the reset email.",
+    "account_id": "ACC-1003"
   },
   {
     "id": "TCK-004",
-    "text": "I want to cancel my subscription right away and make sure I'm not charged again."
+    "text": "I want to cancel my subscription right away and make sure I'm not charged again.",
+    "account_id": "ACC-1004"
   },
   {
     "id": "TCK-005",
-    "text": "You charged me for a plan I never signed up for, and now the API is throwing auth errors too. I need this fixed and I want to know the EXACT number of business days until my money is back in my account."
+    "text": "You charged me for a plan I never signed up for, and now the API is throwing auth errors too. I need this fixed and I want to know the EXACT number of business days until my money is back in my account.",
+    "account_id": "ACC-1005"
+  },
+  {
+    "id": "TCK-006",
+    "text": "I've been locked out of my account after too many failed login attempts and the password reset link isn't working.",
+    "account_id": "ACC-1003"
   }
 ]

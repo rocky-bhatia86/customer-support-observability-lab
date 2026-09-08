@@ -1,0 +1,18 @@
+[
+  {
+    "incident_id": "INC-201",
+    "category": "bug",
+    "keywords": ["timeout", "api", "batch", "events", "backend"],
+    "title": "Elevated API timeouts on /v1/events",
+    "status": "resolved",
+    "description": "A backend deployment on 2026-08-28 caused intermittent timeouts for batch event submissions over 500 events. Resolved 2026-08-29; recommend batching under 500 events as a workaround for older clients."
+  },
+  {
+    "incident_id": "INC-207",
+    "category": "bug",
+    "keywords": ["auth", "errors", "token", "login", "unauthorized"],
+    "title": "Auth token expiry misconfiguration",
+    "status": "active",
+    "description": "Some accounts are seeing auth errors due to a token expiry misconfiguration being rolled out gradually. Engineering is aware and deploying a fix; no customer action required."
+  }
+]

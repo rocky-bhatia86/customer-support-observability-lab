@@ -1,0 +1,39 @@
+[
+  {
+    "account_id": "ACC-1001",
+    "plan": "Pro Monthly",
+    "subscription_status": "active",
+    "recent_charges": [
+      {"date": "2026-08-03", "amount": 29.00, "description": "Pro Monthly renewal"},
+      {"date": "2026-08-03", "amount": 29.00, "description": "Pro Monthly renewal (duplicate)"}
+    ],
+    "refund_eligible_days": 7
+  },
+  {
+    "account_id": "ACC-1002",
+    "plan": "Starter Monthly",
+    "subscription_status": "active",
+    "recent_charges": [
+      {"date": "2026-08-20", "amount": 12.00, "description": "Starter Monthly renewal"}
+    ],
+    "refund_eligible_days": 7
+  },
+  {
+    "account_id": "ACC-1004",
+    "plan": "Team Annual",
+    "subscription_status": "active",
+    "recent_charges": [
+      {"date": "2026-02-10", "amount": 480.00, "description": "Team Annual renewal"}
+    ],
+    "refund_eligible_days": 14
+  },
+  {
+    "account_id": "ACC-1005",
+    "plan": "Pro Monthly",
+    "subscription_status": "active",
+    "recent_charges": [
+      {"date": "2026-08-25", "amount": 29.00, "description": "Plan change: Free -> Pro Monthly"}
+    ],
+    "refund_eligible_days": null
+  }
+]

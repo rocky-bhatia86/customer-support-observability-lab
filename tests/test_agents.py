@@ -70,3 +70,58 @@ def test_workflow_escalates_after_max_iterations(monkeypatch):
 
     assert result.status == "ESCALATED_MAX_ITERATIONS"
     assert result.iterations == 3
+
+
+def test_classify_parses_category_and_agent_plan(monkeypatch):
+    monkeypatch.setattr(
+        orchestrator_agent_module, "call_llm",
+        lambda config, messages, temperature=None: LLMResult(
+            '{"category": "billing", "agents": ["account_data", "kb_retrieval"]}',
+            10, 5, "test-model",
+        ),
+    )
+    agent = orchestrator_agent_module.OrchestratorAgent(_config())
+    category, agents, _ = agent.classify(Ticket(id="T-3", text="Was I charged twice?"))
+
+    assert category == "billing"
+    assert agents == ["account_data", "kb_retrieval"]
+
+
+def test_classify_falls_back_to_defaults_on_unparseable_response(monkeypatch):
+    monkeypatch.setattr(
+        orchestrator_agent_module, "call_llm",
+        lambda config, messages, temperature=None: LLMResult("not json", 10, 5, "test-model"),
+    )
+    agent = orchestrator_agent_module.OrchestratorAgent(_config())
+    category, agents, _ = agent.classify(Ticket(id="T-4", text="Whatever"))
+
+    assert category == "how-to"
+    assert agents == ["kb_retrieval"]
+
+
+def test_workflow_only_runs_the_planned_specialist_agents(monkeypatch):
+    monkeypatch.setattr(
+        orchestrator_agent_module, "call_llm",
+        lambda config, messages, temperature=None: LLMResult(
+            '{"category": "billing", "agents": ["account_data"]}', 10, 2, "test-model",
+        ),
+    )
+    monkeypatch.setattr(
+        drafter_module, "call_llm",
+        lambda config, messages, temperature=None: LLMResult("Here is your answer.", 50, 20, "test-model"),
+    )
+    monkeypatch.setattr(
+        checker_module, "call_llm",
+        lambda config, messages, temperature=None: LLMResult(
+            '{"verdict": "ACCEPT", "reason": "grounded and relevant"}', 30, 10, "test-model",
+        ),
+    )
+
+    runner = WorkflowRunner(_config())
+    result = runner.run(Ticket(id="T-5", text="What's my current plan?", account_id="ACC-1001"))
+
+    agents_used = {s.agent for s in result.steps}
+    assert "account_data" in agents_used
+    assert "kb_retrieval" not in agents_used
+    assert "impact_diagnostics" not in agents_used
+    assert "account_access" not in agents_used
