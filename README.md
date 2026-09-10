@@ -7,15 +7,18 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
 A hands-on lab for AI observability: a real multi-agent customer support
-system, with real production failure modes and real Langfuse tracing
-layered on top — staged across branches so each capability can be studied
-in isolation. (LLM-as-a-judge evaluation is the next stage, on
-`llm-judge-eval` — not yet on this branch.)
+system, with real MCP tool-calling, real production failure modes, and now
+real Langfuse tracing layered on top — staged across branches so each
+capability can be studied in isolation. (LLM-as-a-judge evaluation is the
+next stage, on `llm-judge-eval` — not yet on this branch.)
 
 Ask it something in the chat UI and watch a live orchestrator dynamically
 route your ticket through whichever of 7 specialist agents it actually
-needs, iterate against a quality gate, and either resolve or escalate —
-exactly like a production agentic system would, with every step traced.
+needs. Each specialist agent looks up its data by calling a tool exposed
+over the **Model Context Protocol (MCP)** — the same tool server any other
+MCP client (Claude Desktop, an IDE, etc.) could call — then the ticket
+iterates against a quality gate until it resolves or escalates, exactly
+like a production agentic system would, with every step traced.
 
 ## Quickstart
 
@@ -41,10 +44,12 @@ Each branch adds exactly one capability on top of the previous one:
 
 | Branch | Adds |
 |---|---|
-| `main` | Baseline: a clean 4-agent pipeline, no injected failures |
-| `failure-scenarios` | The full dynamic multi-agent system, a real chat UI, and 4 controlled production failures |
+| `main` | The full dynamic multi-agent system: MCP-based tool calling, a real chat UI, and 4 controlled production failures |
 | `langfuse-observability` (this branch) | Real tracing (Langfuse), layered on the same code |
-| `llm-judge-eval` | LLM-as-a-judge evaluation, scored against real traces |
+| `llm-judge-eval` | LLM-as-a-judge evaluation, Langfuse Prompt Management, and Datasets/Experiments |
+
+Start at `main` — it already includes the full agent system and failure
+scenarios, so every later branch builds on a complete, working base.
 
 ## Architecture
 
@@ -55,7 +60,9 @@ Ticket -> Orchestrator (classify + pick agent plan)
    dynamically runs whichever of:
      Knowledge Agent, Account/Billing Agent,
      Impact/Diagnostics Agent, Account Access Agent
-   the plan calls for
+   the plan calls for -- each one calls its data lookup
+   as an MCP tool (support_ai.mcp_server), not a direct
+   function call
               |
               v
         Drafter -> Quality Checker
@@ -67,7 +74,10 @@ Ticket -> Orchestrator (classify + pick agent plan)
 Not every ticket runs the same agents — the orchestrator's classification
 call decides the plan per ticket. Every LLM call goes through the single
 `support_ai.llm_client.call_llm` function — the one seam instrumented as a
-Langfuse "generation" on this branch.
+Langfuse "generation" on this branch. Every tool lookup goes through
+`support_ai.mcp_client.call_tool`, which talks to the standalone MCP server
+in `support_ai.mcp_server` over stdio — the same 4 tools would work
+unchanged from any other MCP client.
 
 ## Testing
 
@@ -77,7 +87,9 @@ pytest -q
 
 Tests never call a real LLM — `call_llm` is monkeypatched, so `pytest` runs
 without network access or an API key. Langfuse tracing is also safe to
-leave disabled during tests. This is also why CI needs no secrets.
+leave disabled during tests. The MCP server subprocess does start for real
+during tests (tool lookups are not mocked), which is why the first test run
+is slightly slower than later ones. This is also why CI needs no secrets.
 
 ## License
 
