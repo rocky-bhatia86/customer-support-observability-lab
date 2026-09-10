@@ -9,7 +9,7 @@ import support_ai.agents.quality_checker as checker_module
 from support_ai.config import Config
 from support_ai.llm_client import LLMResult
 from support_ai.models import Ticket
-from support_ai.orchestrator import WorkflowRunner
+from support_ai.workflow import WorkflowRunner
 
 
 def _config(**overrides):

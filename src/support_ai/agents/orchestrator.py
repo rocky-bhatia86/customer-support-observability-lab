@@ -1,6 +1,6 @@
 """OrchestratorAgent: classifies an incoming ticket AND decides which
 specialist agents are actually needed to handle it (dynamic routing).
-Looping/execution is handled by support_ai.orchestrator.WorkflowRunner, not
+Looping/execution is handled by support_ai.workflow.WorkflowRunner, not
 here -- this agent only produces the plan.
 
 Available specialist agents:

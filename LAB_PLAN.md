@@ -61,6 +61,28 @@ is the default — simulating "last week's model/prompt bump" — but setting
 clean behavior. This is the same-branch before/after lever: run
 `scripts/run_batch.py` once with each value and diff the output.
 
+## Addendum: dynamic multi-agent routing + real chat UI
+
+Added after the failure design above, on the same `failure-scenarios`
+branch. The orchestrator no longer just classifies a ticket — it also
+decides a **plan**: which of the specialist agents below are actually
+needed for that specific ticket. Not every ticket runs the same agents.
+
+Specialist agents, run only when the plan calls for them:
+- `KBRetrievalAgent` — unchanged from the baseline above.
+- `AccountDataAgent` — simulated billing/subscription lookup.
+- `ImpactDiagnosticsAgent` — simulated known-incident matching.
+- `AccountAccessAgent` — simulated login/lockout status lookup.
+
+`DrafterAgent` and `QualityCheckerAgent` still run every iteration
+regardless of the plan, now grounded in whatever combination of the above
+was gathered. All four original failures (A–D) still apply unchanged.
+
+A real Flask API + chat UI (`scripts/run_server.py`, `web/index.html`) runs
+this system live: real LLM calls, a live SSE stream of each agent step as
+it happens, and a live `v1`/`v2` checker toggle for demonstrating Failure D
+without restarting the server. See `SETUP.md` for how to run it.
+
 ## Observability questions (answered in the NEXT lab stage)
 
 The instrumentation stage must be able to answer, using traces rather than

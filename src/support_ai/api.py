@@ -19,7 +19,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 
 from support_ai.config import load_config
 from support_ai.models import Ticket, WorkflowStep
-from support_ai.orchestrator import WorkflowRunner
+from support_ai.workflow import WorkflowRunner
 
 _ROOT = Path(__file__).resolve().parents[2]
 _WEB_DIR = _ROOT / "web"

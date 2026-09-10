@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from support_ai.config import load_config
 from support_ai.models import Ticket
-from support_ai.orchestrator import WorkflowRunner
+from support_ai.workflow import WorkflowRunner
 
 _TICKETS_PATH = Path(__file__).resolve().parents[1] / "data" / "tickets.json"
 
