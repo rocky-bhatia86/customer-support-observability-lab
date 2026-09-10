@@ -161,6 +161,8 @@ class WorkflowRunner:
             iterations=iterations,
             elapsed_seconds=elapsed,
             steps=steps,
+            trace_id=langfuse.get_current_trace_id(),
+            context=context,
         )
 
     @staticmethod

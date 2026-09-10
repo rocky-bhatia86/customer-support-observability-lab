@@ -27,15 +27,15 @@ def _config(**overrides):
 def test_workflow_resolves_on_first_accept(monkeypatch):
     monkeypatch.setattr(
         orchestrator_agent_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult("billing", 10, 2, "test-model"),
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult("billing", 10, 2, "test-model"),
     )
     monkeypatch.setattr(
         drafter_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult("Here is your answer.", 50, 20, "test-model"),
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult("Here is your answer.", 50, 20, "test-model"),
     )
     monkeypatch.setattr(
         checker_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult(
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult(
             '{"verdict": "ACCEPT", "reason": "grounded and relevant"}', 30, 10, "test-model",
         ),
     )
@@ -52,15 +52,15 @@ def test_workflow_resolves_on_first_accept(monkeypatch):
 def test_workflow_escalates_after_max_iterations(monkeypatch):
     monkeypatch.setattr(
         orchestrator_agent_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult("billing", 10, 2, "test-model"),
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult("billing", 10, 2, "test-model"),
     )
     monkeypatch.setattr(
         drafter_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult("A draft.", 50, 20, "test-model"),
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult("A draft.", 50, 20, "test-model"),
     )
     monkeypatch.setattr(
         checker_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult(
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult(
             '{"verdict": "REJECT_AND_RETRIEVE", "reason": "not specific enough"}', 30, 10, "test-model",
         ),
     )
@@ -75,7 +75,7 @@ def test_workflow_escalates_after_max_iterations(monkeypatch):
 def test_classify_parses_category_and_agent_plan(monkeypatch):
     monkeypatch.setattr(
         orchestrator_agent_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult(
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult(
             '{"category": "billing", "agents": ["account_data", "kb_retrieval"]}',
             10, 5, "test-model",
         ),
@@ -90,7 +90,7 @@ def test_classify_parses_category_and_agent_plan(monkeypatch):
 def test_classify_falls_back_to_defaults_on_unparseable_response(monkeypatch):
     monkeypatch.setattr(
         orchestrator_agent_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult("not json", 10, 5, "test-model"),
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult("not json", 10, 5, "test-model"),
     )
     agent = orchestrator_agent_module.OrchestratorAgent(_config())
     category, agents, _ = agent.classify(Ticket(id="T-4", text="Whatever"))
@@ -102,17 +102,17 @@ def test_classify_falls_back_to_defaults_on_unparseable_response(monkeypatch):
 def test_workflow_only_runs_the_planned_specialist_agents(monkeypatch):
     monkeypatch.setattr(
         orchestrator_agent_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult(
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult(
             '{"category": "billing", "agents": ["account_data"]}', 10, 2, "test-model",
         ),
     )
     monkeypatch.setattr(
         drafter_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult("Here is your answer.", 50, 20, "test-model"),
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult("Here is your answer.", 50, 20, "test-model"),
     )
     monkeypatch.setattr(
         checker_module, "call_llm",
-        lambda config, messages, temperature=None, version=None: LLMResult(
+        lambda config, messages, temperature=None, version=None, prompt=None: LLMResult(
             '{"verdict": "ACCEPT", "reason": "grounded and relevant"}', 30, 10, "test-model",
         ),
     )

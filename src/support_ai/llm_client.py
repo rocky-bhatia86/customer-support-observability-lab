@@ -29,10 +29,14 @@ def call_llm(
     messages: list[dict],
     temperature: float | None = None,
     version: str | None = None,
+    prompt=None,
 ) -> LLMResult:
     """`version` tags the observation with the caller's own prompt/config
     version (e.g. QualityCheckerAgent passes CHECKER_PROMPT_VERSION), so
-    traces can be filtered/grouped by it later."""
+    traces can be filtered/grouped by it later. `prompt` is an optional
+    Langfuse TextPromptClient/ChatPromptClient (from langfuse.get_prompt) --
+    passing it links this generation to that managed prompt version in the
+    Langfuse UI."""
     resolved_temperature = config.temperature if temperature is None else temperature
 
     client = OpenAI(api_key=config.api_key, base_url=config.base_url)
@@ -61,6 +65,7 @@ def call_llm(
             "total": prompt_tokens + completion_tokens,
         },
         version=version,
+        prompt=prompt,
     )
 
     return LLMResult(

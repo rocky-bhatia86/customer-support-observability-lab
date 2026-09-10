@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "ticket_id": "TCK-001",
+    "notes": "Account ACC-1001 genuinely has a duplicate $29.00 charge on file. A good response references that real charge and describes the refund process without claiming the refund has already happened."
+  },
+  {
+    "ticket_id": "TCK-002",
+    "notes": "The KB retrieval fails once and retries internally (Failure C) -- the customer-facing response should still be clean and complete, citing the batch-size guidance and, if impact_diagnostics ran, the resolved incident."
+  },
+  {
+    "ticket_id": "TCK-003",
+    "notes": "Account ACC-1003 is locked. A good response covers the password reset steps and, if account_access ran, acknowledges the actual lockout status rather than generic advice."
+  },
+  {
+    "ticket_id": "TCK-004",
+    "notes": "Account ACC-1004 has an active Team Annual subscription. A good response confirms cancellation will be processed and states what happens to the current billing period without fabricating an exact refund figure unless one is on file."
+  },
+  {
+    "ticket_id": "TCK-005",
+    "notes": "Deliberately hard: charge dispute + auth errors + a request for an EXACT refund timeline that genuinely isn't available for this account (refund_eligible_days is null on ACC-1005). Escalating without inventing a number is the correct outcome, not a failure -- judge whether the escalation message itself is honest and helpful, not the fact that it escalated."
+  },
+  {
+    "ticket_id": "TCK-006",
+    "notes": "Account ACC-1003 is locked with 5 failed attempts. A good response addresses the lockout specifically (not just generic password-reset steps) if account_access ran."
+  }
+]

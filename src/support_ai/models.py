@@ -98,6 +98,8 @@ class WorkflowResult:
     iterations: int
     elapsed_seconds: float
     steps: list[WorkflowStep] = field(default_factory=list)
+    trace_id: str | None = None
+    context: dict = field(default_factory=dict)
 
     @property
     def total_prompt_tokens(self) -> int:

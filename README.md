@@ -2,7 +2,7 @@
 
 ### Stop Guessing, Start Measuring
 
-[![Tests](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml/badge.svg?branch=langfuse-observability)](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml)
+[![Tests](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml/badge.svg?branch=llm-judge-eval-v2)](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
