@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 
+from langfuse import get_client, observe
+
 from support_ai.config import Config
 from support_ai.context_format import format_context
 from support_ai.llm_client import call_llm
@@ -48,7 +50,10 @@ class QualityCheckerAgent:
     def __init__(self, config: Config):
         self.config = config
 
-    def check(self, ticket: Ticket, draft_text: str, context: dict) -> CheckerVerdict:
+    @observe(as_type="agent", name="quality_checker.check", capture_input=False, capture_output=False)
+    def check(
+        self, ticket: Ticket, draft_text: str, context: dict, iteration: int = 0,
+    ) -> CheckerVerdict:
         system_prompt = (
             _V2_SYSTEM_PROMPT if self.config.checker_prompt_version == "v2" else _V1_SYSTEM_PROMPT
         )
@@ -64,8 +69,17 @@ class QualityCheckerAgent:
                 {"role": "user", "content": user_content},
             ],
             temperature=0,
+            version=self.config.checker_prompt_version,
         )
         verdict, reason = _parse_verdict(result.text)
+        get_client().update_current_span(
+            input={"ticket_id": ticket.id, "iteration": iteration},
+            output={"verdict": verdict, "reason": reason},
+            metadata={
+                "iteration": iteration,
+                "checker_prompt_version": self.config.checker_prompt_version,
+            },
+        )
         return CheckerVerdict(
             verdict=verdict,
             reason=reason,

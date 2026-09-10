@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import json
 
+from langfuse import observe
+
 from support_ai.config import Config
 from support_ai.llm_client import LLMResult, call_llm
 from support_ai.models import Ticket
@@ -54,6 +56,7 @@ class OrchestratorAgent:
     def __init__(self, config: Config):
         self.config = config
 
+    @observe(as_type="agent", name="orchestrator.classify")
     def classify(self, ticket: Ticket) -> tuple[str, list[str], LLMResult]:
         result = call_llm(
             self.config,

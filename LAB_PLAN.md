@@ -1,8 +1,8 @@
 # LAB_PLAN.md — Stop Guessing, Start Measuring
 
-This file documents Stages 0-12: the clean baseline and the controlled
-production-failure branch. It intentionally stops before any observability
-tooling is added.
+This file documents the baseline, the controlled production-failure branch,
+and the Langfuse observability stage layered on top of it. It intentionally
+stops before evaluation datasets or LLM-as-a-judge are added.
 
 ## Baseline (`main`, tag `baseline-v1`)
 
@@ -64,9 +64,10 @@ clean behavior. This is the same-branch before/after lever: run
 ## Addendum: dynamic multi-agent routing + real chat UI
 
 Added after the failure design above, on the same `failure-scenarios`
-branch. The orchestrator no longer just classifies a ticket — it also
-decides a **plan**: which of the specialist agents below are actually
-needed for that specific ticket. Not every ticket runs the same agents.
+branch (and carried forward here). The orchestrator no longer just
+classifies a ticket — it also decides a **plan**: which of the specialist
+agents below are actually needed for that specific ticket. Not every
+ticket runs the same agents.
 
 Specialist agents, run only when the plan calls for them:
 - `KBRetrievalAgent` — unchanged from the baseline above.
@@ -83,25 +84,68 @@ this system live: real LLM calls, a live SSE stream of each agent step as
 it happens, and a live `v1`/`v2` checker toggle for demonstrating Failure D
 without restarting the server. See `SETUP.md` for how to run it.
 
-## Observability questions (answered in the NEXT lab stage)
+## Observability (`langfuse-observability`, tag `observability-v1`)
 
-The instrumentation stage must be able to answer, using traces rather than
-guesswork:
+Branched from `failure-scenarios`. No agent logic, prompts, routing, or
+failure behavior was changed -- the only additions are Langfuse tracing
+calls, so this branch demonstrates the *same* system, now instrumented.
 
-- Which agent is slow?
-- How many LLM calls happen per ticket?
-- How many KB retrievals happen?
-- Where do retries occur?
-- Which tickets cause loops?
-- How many iterations happen?
-- How many tokens are consumed?
-- What is the estimated model cost?
-- Which model/prompt version ran?
-- Did the model/prompt change alter behavior?
-- What is the quality of the final response?
+**What was added:**
+
+- `langfuse` pinned as a dependency (`pyproject.toml`); `LANGFUSE_PUBLIC_KEY`
+  / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` added to `.env.example` (blank by
+  default -- tracing safely no-ops without them).
+- `support_ai.llm_client.call_llm` (the single LLM chokepoint) is wrapped as
+  a Langfuse "generation" observation, recording model, input, output,
+  latency (automatic), real token usage from the OpenAI response, model
+  parameters (temperature), and a `version` tag (the checker passes
+  `CHECKER_PROMPT_VERSION` through it).
+- `WorkflowRunner.run` is wrapped as the root trace `support_ticket_workflow`,
+  carrying ticket id, category, model name, checker prompt version, final
+  status, and total duration as trace metadata.
+- Each retry loop iteration is wrapped in its own `iteration_N` span, so a
+  looping ticket visibly shows N repeated
+  `kb_retrieval -> drafter -> quality_checker` cycles under the trace.
+- `OrchestratorAgent.classify`, `KBRetrievalAgent.retrieve`,
+  `DrafterAgent.draft`, and `QualityCheckerAgent.check` are each their own
+  span/observation (types: agent, retriever, agent, agent respectively);
+  `tools.kb_search.search` is its own "tool" span nested under retrieval, so
+  Failure C's failed-then-retried call shows up as two sibling tool spans.
+- The checker's span additionally records verdict, rejection reason,
+  iteration number, and prompt version.
+- `scripts/analyze_traces.py` reads back real Langfuse data (via
+  `client.api.trace.list` / `client.api.observations.get_many`) for recent
+  `support_ticket_workflow` traces and reports: tickets processed, average
+  and p95 latency, average iterations/ticket, average LLM calls/ticket,
+  average KB retrievals/ticket, retry rate, loop rate, total input/output
+  tokens, and estimated total cost (or an explicit "n/a" with the reason,
+  never a fabricated number -- see README "Cost tracking limitations").
+
+**Observability questions this stage can now answer, from real trace data
+instead of guesswork:**
+
+- Which agent is slow? (per-span latency in the trace tree)
+- How many LLM calls happen per ticket? (`GENERATION` observation count)
+- How many KB retrievals happen? (`RETRIEVER` observation count)
+- Where do retries occur? (`TOOL` spans with an `ERROR` level, always paired
+  with a successful sibling)
+- Which tickets cause loops? (traces with `metadata.iterations > 1`)
+- How many iterations happen? (`iteration_N` span count / trace metadata)
+- How many tokens are consumed? (`usage_details` on each generation)
+- What is the estimated model cost? (Langfuse-computed `total_cost`, when
+  the model is registered with pricing)
+- Which model/prompt version ran? (trace/generation `model` and `version`
+  fields)
+- Did the model/prompt change alter behavior? (compare `v1` vs `v2` batches
+  by `metadata.checker_prompt_version`)
+- What is the quality of the final response? -- **not yet answered**; this
+  requires the evaluation dataset and LLM-as-a-judge stage, still to come.
+
+See README.md "Langfuse setup" for how to inspect a trace and identify each
+of the four failures directly in the Langfuse UI.
 
 ## Explicitly out of scope for this stage
 
-No Langfuse, no tracing SDK, no evaluation framework, no LLM-as-a-judge, no
-dashboard. `data/eval_dataset.json` exists as an empty placeholder only —
-it is populated in the evaluation stage, not here.
+No evaluation dataset population, no LLM-as-a-judge, no dashboard beyond
+`scripts/analyze_traces.py`'s text summary. `data/eval_dataset.json` still
+exists only as an empty placeholder -- it is populated in the next stage.

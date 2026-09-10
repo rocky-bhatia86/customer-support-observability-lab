@@ -9,6 +9,8 @@ import json
 import re
 from pathlib import Path
 
+from langfuse import get_client, observe
+
 from support_ai.models import KBArticle
 
 _KB_PATH = Path(__file__).resolve().parents[3] / "kb" / "articles.json"
@@ -33,6 +35,7 @@ def load_articles() -> list[KBArticle]:
     return [KBArticle(**item) for item in raw]
 
 
+@observe(as_type="tool", name="kb_search.search", capture_input=False, capture_output=False)
 def search(
     category: str, query: str, top_k: int = 3, simulate_error: bool = False,
 ) -> tuple[list[KBArticle], list[str]]:
@@ -43,8 +46,13 @@ def search(
 
     `simulate_error` lets a caller deterministically reproduce a transient
     backend failure (used by the failure-scenarios lab branch) without any
-    randomness.
+    randomness. The @observe decorator marks the resulting span as errored
+    and re-raises, so a failed call followed by a successful retry shows up
+    as two sibling tool spans under the retrieving agent's span.
     """
+    span = get_client().update_current_span
+    span(input={"category": category, "query": query, "simulate_error": simulate_error})
+
     if simulate_error:
         raise KBSearchError("simulated transient KB backend failure")
 
@@ -68,4 +76,6 @@ def search(
     else:
         top = [article for _, article in scored[:top_k]]
 
-    return top, [a.id for a in top]
+    matched_ids = [a.id for a in top]
+    span(output={"matched_ids": matched_ids, "document_count": len(top)})
+    return top, matched_ids

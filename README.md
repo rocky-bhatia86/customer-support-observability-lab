@@ -2,51 +2,49 @@
 
 ### Stop Guessing, Start Measuring
 
-[![Tests](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml/badge.svg?branch=failure-scenarios)](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml)
+[![Tests](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml/badge.svg?branch=langfuse-observability)](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
 A hands-on lab for AI observability: a real multi-agent customer support
-system, with real production failure modes, real tracing, and a real
-LLM-as-a-judge evaluator layered on top — staged across branches so each
-capability can be studied in isolation.
+system, with real production failure modes and real Langfuse tracing
+layered on top — staged across branches so each capability can be studied
+in isolation. (LLM-as-a-judge evaluation is the next stage, on
+`llm-judge-eval` — not yet on this branch.)
 
 Ask it something in the chat UI and watch a live orchestrator dynamically
 route your ticket through whichever of 7 specialist agents it actually
 needs, iterate against a quality gate, and either resolve or escalate —
-exactly like a production agentic system would.
+exactly like a production agentic system would, with every step traced.
 
 ## Quickstart
 
 ```bash
-git checkout failure-scenarios      # start here, not main -- see "Branches" below
+git checkout langfuse-observability
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 cp .env.example .env                # set OPENAI_API_KEY
 python scripts/run_server.py
 ```
 
-Open **http://localhost:8000**. That's the whole setup for the first stage —
-no Docker, no external services.
+Open **http://localhost:8000** — this works with tracing fully disabled
+(all three `LANGFUSE_*` variables blank). To turn tracing on, see
+"Langfuse setup" below.
 
-**Full step-by-step instructions, including the observability and
-evaluation stages, are in [`SETUP.md`](SETUP.md).** The design rationale and
-the story behind each production failure are in [`LAB_PLAN.md`](LAB_PLAN.md).
+**Full step-by-step instructions across every stage are in
+[`SETUP.md`](SETUP.md).** The design rationale and the story behind each
+production failure are in [`LAB_PLAN.md`](LAB_PLAN.md).
 
 ## Branches
 
-Each branch adds exactly one capability on top of the previous one — nothing
-is removed or rewritten along the way:
+Each branch adds exactly one capability on top of the previous one:
 
 | Branch | Adds |
 |---|---|
 | `main` | Baseline: a clean 4-agent pipeline, no injected failures |
 | `failure-scenarios` | The full dynamic multi-agent system, a real chat UI, and 4 controlled production failures |
-| `langfuse-observability` | Real tracing (Langfuse), layered on the same code |
+| `langfuse-observability` (this branch) | Real tracing (Langfuse), layered on the same code |
 | `llm-judge-eval` | LLM-as-a-judge evaluation, scored against real traces |
-
-Start at `failure-scenarios` — `main` predates the chat UI and the dynamic
-agent system entirely.
 
 ## Architecture
 
@@ -68,8 +66,8 @@ Ticket -> Orchestrator (classify + pick agent plan)
 
 Not every ticket runs the same agents — the orchestrator's classification
 call decides the plan per ticket. Every LLM call goes through the single
-`support_ai.llm_client.call_llm` function, which is the seam later stages
-instrument with Langfuse tracing.
+`support_ai.llm_client.call_llm` function — the one seam instrumented as a
+Langfuse "generation" on this branch.
 
 ## Testing
 
@@ -78,8 +76,121 @@ pytest -q
 ```
 
 Tests never call a real LLM — `call_llm` is monkeypatched, so `pytest` runs
-without network access or an API key. This is also why CI needs no secrets.
+without network access or an API key. Langfuse tracing is also safe to
+leave disabled during tests. This is also why CI needs no secrets.
 
 ## License
 
 [MIT](LICENSE)
+
+## Langfuse setup
+
+This branch adds the `langfuse` SDK (pinned in `pyproject.toml`) as the
+tracing backend. It's off by default: with all three `LANGFUSE_*` variables
+blank, the SDK disables span creation and the workflow runs exactly as
+before. You may still see a single harmless stderr line at process exit
+(`Failed to export span batch...`) from the SDK's background flush thread —
+this is a cosmetic SDK quirk with no credentials configured, not a
+functional issue; it does not affect test results or the workflow's output.
+
+To turn tracing on:
+
+1. **Cloud** (fastest): sign up at https://cloud.langfuse.com (or the EU
+   region), create a project, and copy its Public/Secret keys.
+2. **Self-hosted**: run the Langfuse docker compose stack, e.g.:
+   ```bash
+   git clone https://github.com/langfuse/langfuse.git
+   cd langfuse && docker compose up -d
+   ```
+   Then open http://localhost:3000, create a project, and copy its keys.
+3. Set in `.env`:
+   ```
+   LANGFUSE_PUBLIC_KEY=pk-lf-...
+   LANGFUSE_SECRET_KEY=sk-lf-...
+   LANGFUSE_HOST=https://cloud.langfuse.com   # or http://localhost:3000
+   ```
+
+No credentials are ever hard-coded in this repo — they only ever come from
+`.env` (gitignored) or your shell environment.
+
+### Running the same batch with tracing on
+
+```bash
+python scripts/run_batch.py
+# wait ~15-30s for Langfuse ingestion (it's async), then:
+python scripts/analyze_traces.py
+```
+
+### How to inspect a trace
+
+Open your Langfuse project -> Tracing. Each ticket produces one trace named
+`support_ticket_workflow`. Click a trace to see the full tree:
+
+```
+support_ticket_workflow (trace: ticket id, category, model, checker version, status, duration)
+├── orchestrator.classify (agent)
+│   └── llm_call (generation: model, input, output, tokens)
+├── iteration_1 (span)
+│   ├── kb_retrieval.retrieve (retriever: query, matched KB ids)
+│   │   └── kb_search.search (tool: category/query in, matched ids + count out)
+│   ├── drafter.draft (agent)
+│   │   └── llm_call (generation)
+│   └── quality_checker.check (agent: verdict, reason, iteration, prompt version)
+│       └── llm_call (generation)
+├── iteration_2 (span)        # only present on retry
+│   └── ... same shape as iteration_1
+```
+
+### How to identify the loop (Failure A)
+
+Open a trace for `TCK-005` (or any ticket that didn't resolve on iteration
+1). You'll see multiple `iteration_N` spans, each containing its own
+`kb_retrieval -> drafter -> quality_checker` cycle. The trace's top-level
+`status` metadata reads `ESCALATED_MAX_ITERATIONS` once it hits
+`iteration_5` without an ACCEPT. Filter traces by
+`metadata.iterations > 1` (or use `scripts/analyze_traces.py`'s "loop rate")
+to find every ticket that looped, not just this one.
+
+### How to identify token growth (Failure B)
+
+Open the same looping trace and compare the `drafter.draft -> llm_call`
+generation's input size/prompt tokens across `iteration_1`, `iteration_2`,
+... The input grows every iteration because retrieved KB articles are
+accumulated rather than replaced -- visible directly in each generation's
+recorded `input` and `usage_details.input` token count.
+
+### How to identify retries (Failure C)
+
+Open the trace for `TCK-002`. Inside `iteration_1 -> kb_retrieval.retrieve`
+there are two sibling `kb_search.search` tool spans: the first is marked
+as an error (level `ERROR`, exception `KBSearchError`), the second
+succeeds. `scripts/analyze_traces.py` reports this as "retry rate".
+
+### How to compare model/prompt versions (Failure D)
+
+Run the batch twice, once per checker version, then compare:
+
+```bash
+CHECKER_PROMPT_VERSION=v2 python scripts/run_batch.py
+CHECKER_PROMPT_VERSION=v1 python scripts/run_batch.py
+```
+
+In Langfuse, filter/group traces by `metadata.checker_prompt_version` (or
+by the `version` field on each `quality_checker.check -> llm_call`
+generation). You should see materially more `REJECT_AND_RETRIEVE`
+verdicts, more iterations, and higher token usage under `v2` for the same
+ticket set -- this is the "last week's model bump changed behavior,
+now proven with data" scenario.
+
+### Cost tracking limitations
+
+Every `llm_call` generation records real `usage_details` (`input`/`output`/
+`total` tokens) taken directly from the OpenAI response -- these are never
+estimated or invented. Langfuse computes **cost** server-side by matching
+the generation's `model` name against a pricing table configured in your
+Langfuse project. Common OpenAI models (e.g. `gpt-4o-mini`) have default
+pricing in Langfuse Cloud; if you use a different/custom model name, or a
+self-hosted instance without default model definitions loaded, cost will
+show as unavailable until you add that model's real per-token pricing
+under Project Settings -> Models in the Langfuse UI. This lab does not
+hard-code or guess any per-token price in application code.

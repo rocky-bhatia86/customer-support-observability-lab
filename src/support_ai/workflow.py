@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import time
 
+from langfuse import get_client, observe
+
 from support_ai.agents.account_access import AccountAccessAgent
 from support_ai.agents.account_data import AccountDataAgent
 from support_ai.agents.drafter import DrafterAgent
@@ -43,7 +45,18 @@ class WorkflowRunner:
         self.drafter_agent = DrafterAgent(config)
         self.checker_agent = QualityCheckerAgent(config)
 
+    @observe(name="support_ticket_workflow", as_type="span", capture_input=False, capture_output=False)
     def run(self, ticket: Ticket, on_step=None) -> WorkflowResult:
+        langfuse = get_client()
+        langfuse.update_current_span(
+            input={"ticket_id": ticket.id, "ticket_text": ticket.text},
+            metadata={
+                "ticket_id": ticket.id,
+                "model_name": self.config.model_name,
+                "checker_prompt_version": self.config.checker_prompt_version,
+                "max_agent_iterations": self.config.max_agent_iterations,
+            },
+        )
         start_time = time.monotonic()
         steps: list[WorkflowStep] = []
 
@@ -71,48 +84,52 @@ class WorkflowRunner:
         }
 
         for iteration in range(1, self.config.max_agent_iterations + 1):
-            if "kb_retrieval" in agent_plan:
-                retrieval = self._timed(
-                    steps, iteration, "kb_retrieval", "retrieve",
-                    lambda: self.kb_agent.retrieve(category_value, ticket.text, ticket.id),
+            with langfuse.start_as_current_observation(
+                name=f"iteration_{iteration}", as_type="span",
+                input={"iteration": iteration, "agent_plan": agent_plan},
+            ):
+                if "kb_retrieval" in agent_plan:
+                    retrieval = self._timed(
+                        steps, iteration, "kb_retrieval", "retrieve",
+                        lambda: self.kb_agent.retrieve(category_value, ticket.text, ticket.id),
+                        on_step,
+                    )
+                    accumulated_articles = accumulated_articles + retrieval.articles
+                    context["kb_articles"] = accumulated_articles
+
+                if "account_data" in agent_plan:
+                    context["account_data"] = self._timed(
+                        steps, iteration, "account_data", "lookup",
+                        lambda: self.account_data_agent.lookup(ticket),
+                        on_step,
+                    )
+
+                if "impact_diagnostics" in agent_plan:
+                    context["impact"] = self._timed(
+                        steps, iteration, "impact_diagnostics", "check",
+                        lambda: self.impact_agent.check(ticket, category_value),
+                        on_step,
+                    )
+
+                if "account_access" in agent_plan:
+                    context["access"] = self._timed(
+                        steps, iteration, "account_access", "check",
+                        lambda: self.access_agent.check(ticket),
+                        on_step,
+                    )
+
+                draft = self._timed(
+                    steps, iteration, "drafter", "draft",
+                    lambda: self.drafter_agent.draft(ticket, category_value, context),
                     on_step,
                 )
-                accumulated_articles = accumulated_articles + retrieval.articles
-                context["kb_articles"] = accumulated_articles
+                last_draft_text = draft.text
 
-            if "account_data" in agent_plan:
-                context["account_data"] = self._timed(
-                    steps, iteration, "account_data", "lookup",
-                    lambda: self.account_data_agent.lookup(ticket),
+                verdict = self._timed(
+                    steps, iteration, "quality_checker", "check",
+                    lambda: self.checker_agent.check(ticket, draft.text, context, iteration),
                     on_step,
                 )
-
-            if "impact_diagnostics" in agent_plan:
-                context["impact"] = self._timed(
-                    steps, iteration, "impact_diagnostics", "check",
-                    lambda: self.impact_agent.check(ticket, category_value),
-                    on_step,
-                )
-
-            if "account_access" in agent_plan:
-                context["access"] = self._timed(
-                    steps, iteration, "account_access", "check",
-                    lambda: self.access_agent.check(ticket),
-                    on_step,
-                )
-
-            draft = self._timed(
-                steps, iteration, "drafter", "draft",
-                lambda: self.drafter_agent.draft(ticket, category_value, context),
-                on_step,
-            )
-            last_draft_text = draft.text
-
-            verdict = self._timed(
-                steps, iteration, "quality_checker", "check",
-                lambda: self.checker_agent.check(ticket, draft.text, context),
-                on_step,
-            )
 
             if verdict.verdict == "ACCEPT":
                 status = "RESOLVED"
@@ -121,12 +138,27 @@ class WorkflowRunner:
         final_response = last_draft_text if status == "RESOLVED" else _ESCALATION_MESSAGE
 
         elapsed = time.monotonic() - start_time
+        iterations = steps[-1].iteration if steps else 0
+
+        langfuse.update_current_span(
+            output={"status": status, "final_response": final_response},
+            metadata={
+                "ticket_id": ticket.id,
+                "category": category_value,
+                "status": status,
+                "iterations": iterations,
+                "elapsed_seconds": elapsed,
+                "model_name": self.config.model_name,
+                "checker_prompt_version": self.config.checker_prompt_version,
+            },
+        )
+
         return WorkflowResult(
             ticket_id=ticket.id,
             category=category_value,
             status=status,
             final_response=final_response,
-            iterations=steps[-1].iteration if steps else 0,
+            iterations=iterations,
             elapsed_seconds=elapsed,
             steps=steps,
         )

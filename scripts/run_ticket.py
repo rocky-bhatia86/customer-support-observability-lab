@@ -12,6 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from langfuse import get_client
+
 from support_ai.config import load_config
 from support_ai.models import Ticket
 from support_ai.workflow import WorkflowRunner
@@ -54,8 +56,13 @@ def main():
 
     config = load_config()
     runner = WorkflowRunner(config)
-    result = runner.run(ticket)
-    _print_result(result)
+    try:
+        result = runner.run(ticket)
+        _print_result(result)
+    finally:
+        # Langfuse exports spans on a background thread/interval; flush
+        # here so a short-lived CLI run doesn't exit before delivery.
+        get_client().flush()
 
 
 if __name__ == "__main__":
