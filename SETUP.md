@@ -9,34 +9,27 @@ capability on top of the previous one:
 
 | Branch | Adds |
 |---|---|
-| `failure-scenarios` | The full multi-agent system, a real chat UI, and 4 controlled production failures |
+| `main` | The full multi-agent system, MCP tool-calling, a real chat UI, and 4 controlled production failures |
 | `langfuse-observability` | Real tracing (Langfuse), layered on the same code |
 | `llm-judge-eval` | LLM-as-a-judge evaluation, scored against real traces |
 
-**Start at `failure-scenarios`.** Do not skip ahead — later stages assume the
-previous stage is already working.
+**Start at `main`.** Do not skip ahead — later stages assume the previous
+stage is already working.
 
 ---
 
 ## 0. Getting the Code Onto This Machine
 
-This repository currently has no git remote (no GitHub/GitLab URL to clone
-from). Use one of the following:
+```bash
+git clone https://github.com/rocky-bhatia86/customer-support-observability-lab.git
+```
 
-- **Copy the project folder.** It includes `.git/`, so all branches and
-  history transfer with it — via USB drive, AirDrop, `rsync`, or any shared
-  storage. No git server required.
-- **Push to a remote first.** If a proper `git clone` workflow is needed
-  across machines or collaborators, push this repository to a GitHub/GitLab
-  remote, then clone from there.
-
-Once the folder exists on the target machine, confirm all branches are
-present:
+Confirm all branches are present:
 
 ```bash
 cd customer-support-observability-lab
 git branch -a
-# expect: main, failure-scenarios, langfuse-observability, llm-judge-eval
+# expect: main, langfuse-observability, llm-judge-eval
 ```
 
 ---
@@ -55,11 +48,11 @@ can use a free Langfuse Cloud account instead — see Section 3.
 
 ---
 
-## 2. Stage 1 — `failure-scenarios`
+## 2. Stage 1 — `main`
 
 ```bash
 cd customer-support-observability-lab
-git checkout failure-scenarios
+git checkout main
 
 python3 -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
@@ -93,7 +86,9 @@ Open **http://localhost:8000**. The chat UI shows 5 suggested tickets and a
 1. Click any suggested ticket. It resolves within roughly 10–20 seconds —
    these are real LLM calls, so some wait time is expected.
 2. Open **Show Agent Activity** and confirm real agent names and real data
-   are shown.
+   are shown — each specialist agent's data lookup is a real MCP tool call
+   to `support_ai.mcp_server` (a subprocess spawned on first use, then
+   reused for the life of the server).
 3. Switch the header toggle to **v2** and re-run the same ticket. Some
    tickets (e.g. "I need a refund") will now loop and escalate — identical
    code, one setting changed. This is the intended behavior (Failure D), not
@@ -202,7 +197,7 @@ for direct comparison.
 python -m pytest -q
 ```
 
-All tests should pass (7, on `failure-scenarios` and later branches). A
+All tests should pass (7, on `main` and later branches). A
 failure immediately after moving to a new machine is almost always a missed
 `pip install -e .` after a branch switch, or a `.venv` that did not transfer
 correctly — delete `.venv` and recreate it using the commands in Section 2.
