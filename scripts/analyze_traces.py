@@ -4,8 +4,13 @@
 This reads back what was actually recorded by scripts/run_ticket.py and
 scripts/run_batch.py via the Langfuse REST API -- it does not compute or
 guess anything from local state, and it does not fabricate a number when
-Langfuse hasn't recorded one (e.g. cost is left as "n/a" rather than 0.00
-if no model pricing is configured; see README "Cost tracking limitations").
+Langfuse hasn't recorded one.
+
+Uses the Observations v2 API (`GET /api/public/v2/observations`), not the
+deprecated `GET /api/public/traces` / `GET /api/public/observations`
+endpoints -- those are disabled on self-hosted Langfuse v4 deployments
+running in the default "events_only" write mode (see README "Langfuse v4
+events_only mode" for why, and how this script queries around it).
 
 Note: Langfuse ingestion is asynchronous. If you just ran a batch, wait
 15-30 seconds before running this script, or it may see partial data.
@@ -28,6 +33,8 @@ from langfuse.api.commons.errors.unauthorized_error import UnauthorizedError
 from support_ai.config import load_config
 
 _WORKFLOW_TRACE_NAME = "support_ticket_workflow"
+_ROOT_FIELDS = "core,basic,metadata,metrics"
+_OBSERVATION_FIELDS = "core,basic,usage"
 
 
 def _percentile(values: list[float], pct: float) -> float | None:
@@ -49,10 +56,11 @@ def main():
 
     try:
         since = datetime.now(timezone.utc) - timedelta(minutes=args.since_minutes)
-        traces_page = client.api.trace.list(
+        roots_page = client.api.observations.get_many(
             name=_WORKFLOW_TRACE_NAME,
-            from_timestamp=since,
+            from_start_time=since,
             limit=args.limit,
+            fields=_ROOT_FIELDS,
         )
     except AttributeError:
         raise SystemExit(
@@ -66,9 +74,9 @@ def main():
             "LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, and LANGFUSE_HOST in "
             ".env match a real project."
         )
-    traces = traces_page.data
+    roots = roots_page.data
 
-    if not traces:
+    if not roots:
         print(
             f"No '{_WORKFLOW_TRACE_NAME}' traces found in the last "
             f"{args.since_minutes} minutes. Run scripts/run_batch.py first, "
@@ -76,12 +84,11 @@ def main():
         )
         return
 
-    latencies = [t.latency for t in traces if t.latency is not None]
+    latencies = [r.latency for r in roots if r.latency is not None]
     iterations = [
-        t.metadata.get("iterations") for t in traces
-        if t.metadata and t.metadata.get("iterations") is not None
+        r.metadata.get("iterations") for r in roots
+        if r.metadata and r.metadata.get("iterations") is not None
     ]
-    costs = [t.total_cost for t in traces if t.total_cost is not None and t.total_cost > 0]
 
     generation_counts = []
     retrieval_counts = []
@@ -90,9 +97,13 @@ def main():
     total_input_tokens = 0
     total_output_tokens = 0
     tickets_with_token_data = 0
+    total_cost = 0.0
+    tickets_with_cost_data = 0
 
-    for trace in traces:
-        observations = client.api.observations.get_many(trace_id=trace.id).data
+    for root in roots:
+        observations = client.api.observations.get_many(
+            trace_id=root.trace_id, fields=_OBSERVATION_FIELDS,
+        ).data
 
         generations = [o for o in observations if o.type == "GENERATION"]
         retrievers = [o for o in observations if o.type == "RETRIEVER"]
@@ -104,21 +115,27 @@ def main():
         if any(o.level == "ERROR" for o in tool_spans):
             retry_ticket_count += 1
 
-        iteration_count = trace.metadata.get("iterations") if trace.metadata else None
+        iteration_count = root.metadata.get("iterations") if root.metadata else None
         if iteration_count and iteration_count > 1:
             loop_ticket_count += 1
 
         ticket_had_usage = False
+        ticket_had_cost = False
         for gen in generations:
             usage = gen.usage_details or {}
             if usage:
                 ticket_had_usage = True
                 total_input_tokens += usage.get("input", 0)
                 total_output_tokens += usage.get("output", 0)
+            if gen.total_cost is not None:
+                ticket_had_cost = True
+                total_cost += gen.total_cost
         if ticket_had_usage:
             tickets_with_token_data += 1
+        if ticket_had_cost:
+            tickets_with_cost_data += 1
 
-    n = len(traces)
+    n = len(roots)
     p95_latency = _percentile(latencies, 95)
 
     print(f"Tickets processed:            {n}")
@@ -136,14 +153,14 @@ def main():
     else:
         print("Total input/output tokens:    n/a (no generation usage_details recorded)")
 
-    if costs:
-        print(f"Estimated total cost (USD):   {sum(costs):.4f}")
+    if tickets_with_cost_data:
+        print(f"Estimated total cost (USD):   {total_cost:.4f}")
     else:
         print(
             "Estimated total cost (USD):   n/a -- Langfuse has no pricing "
             f"entry for model '{load_config().model_name}'. Token counts above "
             "are real; cost requires registering this model's pricing in "
-            "your Langfuse project (see README 'Cost tracking limitations')."
+            "your Langfuse project (see README 'Cost tracking')."
         )
 
 

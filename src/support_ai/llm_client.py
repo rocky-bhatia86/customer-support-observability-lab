@@ -49,7 +49,7 @@ def call_llm(
     # Real token counts from the OpenAI response only -- never fabricated.
     # Langfuse computes cost server-side from these counts + the model name,
     # provided the model is registered with pricing in the Langfuse project
-    # (see README "Cost tracking limitations").
+    # (see README "Cost tracking").
     get_client().update_current_generation(
         model=config.model_name,
         model_parameters={"temperature": resolved_temperature},

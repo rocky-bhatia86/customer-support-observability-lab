@@ -124,13 +124,15 @@ instrumented.
   Failure C's failed-then-retried call shows up as two sibling tool spans.
 - The checker's span additionally records verdict, rejection reason,
   iteration number, and prompt version.
-- `scripts/analyze_traces.py` reads back real Langfuse data (via
-  `client.api.trace.list` / `client.api.observations.get_many`) for recent
+- `scripts/analyze_traces.py` reads back real Langfuse data (via the
+  Observations v2 API, `client.api.observations.get_many(..., fields=...)`
+  -- the deprecated `client.api.trace.list` is disabled on self-hosted
+  Langfuse v4's default "events_only" write mode) for recent
   `support_ticket_workflow` traces and reports: tickets processed, average
   and p95 latency, average iterations/ticket, average LLM calls/ticket,
   average KB retrievals/ticket, retry rate, loop rate, total input/output
   tokens, and estimated total cost (or an explicit "n/a" with the reason,
-  never a fabricated number -- see README "Cost tracking limitations").
+  never a fabricated number -- see README "Cost tracking").
 
 **Observability questions this stage can now answer, from real trace data
 instead of guesswork:**
