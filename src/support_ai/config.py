@@ -25,6 +25,11 @@ def load_config() -> Config:
         checker_prompt_version=os.getenv("CHECKER_PROMPT_VERSION", "v2"),
         # Any OpenAI-compatible endpoint (e.g. Databricks Model Serving)
         # can be swapped in here without touching agent code. Blank/unset
-        # means "use OpenAI's own API" (the openai SDK default).
-        base_url=os.getenv("OPENAI_BASE_URL") or None,
+        # means "use OpenAI's own API" -- explicitly spelled out (rather
+        # than left as None for the SDK to default) because openai==2.30.0
+        # paired with its new httpx2 transport resolves an unset base_url
+        # to an empty string instead of the real default, which then fails
+        # every request with "Connection error." (httpx2.UnsupportedProtocol:
+        # missing http/https). Confirmed via direct reproduction.
+        base_url=os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1",
     )
