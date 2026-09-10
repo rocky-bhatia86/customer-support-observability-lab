@@ -1,36 +1,37 @@
 # Support AI Lab — Setup Guide
 
-This assumes nothing about the machine you're on. Follow it top to bottom the
-first time; each numbered step says exactly what to check before moving on.
+This guide assumes nothing about the machine you're using. Follow it in
+order the first time; each step states exactly what to check before moving
+to the next.
 
-The lab is staged across git branches — each one adds exactly one capability
-on top of the last:
+The lab is staged across git branches. Each branch adds exactly one
+capability on top of the previous one:
 
 | Branch | Adds |
 |---|---|
-| `failure-scenarios` | The full multi-agent system, real chat UI, 4 controlled production failures |
-| `langfuse-observability` | Real tracing (Langfuse) on top of the same code |
+| `failure-scenarios` | The full multi-agent system, a real chat UI, and 4 controlled production failures |
+| `langfuse-observability` | Real tracing (Langfuse), layered on the same code |
 | `llm-judge-eval` | LLM-as-a-judge evaluation, scored against real traces |
 
-Start at `failure-scenarios`. Don't jump ahead — the later stages assume the
-earlier one is already working.
+**Start at `failure-scenarios`.** Do not skip ahead — later stages assume the
+previous stage is already working.
 
 ---
 
-## 0. Getting the code onto this machine
+## 0. Getting the Code Onto This Machine
 
-There is currently **no git remote** for this repo (no GitHub/GitLab URL to
-`git clone`). Pick one:
+This repository currently has no git remote (no GitHub/GitLab URL to clone
+from). Use one of the following:
 
-- **Simplest**: copy the whole project folder (it includes `.git/`, so all
-  branches and history come with it) via USB drive, AirDrop, `rsync`, a
-  shared drive, whatever you have. No git server needed.
-- **Proper clone workflow**: push this repo to a GitHub/GitLab repo you
-  control first, then `git clone <that-url>` on the new machine. Ask me to
-  set this up if you want it — it's a few commands, not done yet.
+- **Copy the project folder.** It includes `.git/`, so all branches and
+  history transfer with it — via USB drive, AirDrop, `rsync`, or any shared
+  storage. No git server required.
+- **Push to a remote first.** If a proper `git clone` workflow is needed
+  across machines or collaborators, push this repository to a GitHub/GitLab
+  remote, then clone from there.
 
-Either way, once the folder exists on the new machine, confirm all 4
-branches came with it:
+Once the folder exists on the target machine, confirm all branches are
+present:
 
 ```bash
 cd customer-support-observability-lab
@@ -40,23 +41,21 @@ git branch -a
 
 ---
 
-## 1. Prerequisites (check these before anything else)
+## 1. Prerequisites
 
 | Requirement | Needed for | Check with |
 |---|---|---|
-| Python 3.11+ | Everything | `python3 --version` |
-| `git` | Everything | `git --version` |
-| An OpenAI (or OpenAI-compatible) API key | Everything | — you provide this |
-| Docker Desktop | **Only** if self-hosting Langfuse for Stage 2/3 | `docker --version` |
+| Python 3.11+ | All stages | `python3 --version` |
+| Git | All stages | `git --version` |
+| An OpenAI (or OpenAI-compatible) API key | All stages | — provided by you |
+| Docker Desktop | Only if self-hosting Langfuse (Stage 2/3) | `docker --version` |
 
-If you don't have Docker and don't want to install it: you can skip
-self-hosting and use a free Langfuse Cloud account instead for Stage 2/3 —
-covered in that section. **Docker is not required for Stage 1
-(`failure-scenarios`) at all.**
+Docker is **not required** for Stage 1. If Docker is unavailable, Stage 2/3
+can use a free Langfuse Cloud account instead — see Section 3.
 
 ---
 
-## 2. Stage 1 — `failure-scenarios` (do this first, every time, on a new machine)
+## 2. Stage 1 — `failure-scenarios`
 
 ```bash
 cd customer-support-observability-lab
@@ -70,64 +69,62 @@ pip install -e .
 cp .env.example .env
 ```
 
-Now open `.env` and fill in:
+Open `.env` and set:
 
 ```
-OPENAI_API_KEY=<your real key>
+OPENAI_API_KEY=<your key>
 ```
 
-Everything else in `.env` already has working defaults — **do not change
-`OPENAI_BASE_URL`** unless you specifically want to point at a different
-provider (e.g. a company-internal gateway). Leave it blank to use OpenAI's
-own API directly.
+Every other value already has a working default. Leave `OPENAI_BASE_URL`
+blank unless pointing at a specific OpenAI-compatible gateway (e.g. an
+internal model-serving endpoint).
 
-Run it:
+Start the server:
 
 ```bash
 python scripts/run_server.py
 ```
 
-Open **http://localhost:8000**. You should see the chat UI with 5 suggested
-tickets and a "Checker: v1 / v2" toggle in the header.
+Open **http://localhost:8000**. The chat UI shows 5 suggested tickets and a
+**Checker: v1 / v2** toggle in the header.
 
-### Verify it's actually working
+### Verification
 
-1. Click any suggested ticket. It should resolve normally within ~10-20
-   seconds (real LLM calls take time — this is not a bug, don't assume it's
-   stuck).
-2. Click "Show Agent Activity" and confirm you see real agent names and real
-   data (not placeholder text).
-3. Flip the header toggle to **v2**, re-run the same ticket. Some tickets
-   (e.g. "I need a refund") will now loop and escalate — same code, one
-   setting changed. That's Failure D, working as intended, not a bug.
+1. Click any suggested ticket. It resolves within roughly 10–20 seconds —
+   these are real LLM calls, so some wait time is expected.
+2. Open **Show Agent Activity** and confirm real agent names and real data
+   are shown.
+3. Switch the header toggle to **v2** and re-run the same ticket. Some
+   tickets (e.g. "I need a refund") will now loop and escalate — identical
+   code, one setting changed. This is the intended behavior (Failure D), not
+   a defect.
 
-If step 1 fails with a connection error even though your API key is valid:
-check `src/support_ai/config.py` — this repo already has a fix for a known
-`openai` SDK bug (an unset `base_url` resolving incorrectly). If you're
-somehow on a version of this code from before that fix, `git pull`/re-copy
-the folder.
+**If a request fails with a connection error despite a valid API key:**
+`src/support_ai/config.py` includes a fix for a known `openai` SDK issue
+(an unset `base_url` resolving incorrectly). Confirm the code includes this
+fix; if not, re-copy the repository.
 
-**Stage 1 is fully working with just this — no Langfuse, no Docker, nothing
-else needed.**
+Stage 1 is fully functional at this point — no Langfuse or Docker required.
 
 ---
 
-## 3. Stage 2 — `langfuse-observability` (adds real tracing)
+## 3. Stage 2 — `langfuse-observability`
 
 ```bash
 git checkout langfuse-observability
-pip install -e .          # picks up the added langfuse dependency
+pip install -e .
 ```
 
-Your `.env` from Stage 1 carries forward automatically (it's untracked by
-git, so switching branches doesn't touch it) — you only need to *add* the
-Langfuse keys, not redo everything.
+The `.env` file from Stage 1 carries forward automatically — it is untracked
+by git, so switching branches does not affect it. Only the Langfuse keys
+need to be added.
 
-**Choose one, based on whether you have Docker:**
+**Choose one path:**
 
-### Option A — No Docker: Langfuse Cloud (fastest)
-1. Sign up free at the Langfuse Cloud console.
-2. Create a project, generate an API key pair.
+### Option A — Langfuse Cloud (no Docker required)
+
+1. Create a free account at the Langfuse Cloud console.
+2. Create a project and generate an API key pair.
 3. Add to `.env`:
    ```
    LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -135,88 +132,89 @@ Langfuse keys, not redo everything.
    LANGFUSE_HOST=https://cloud.langfuse.com
    ```
 
-### Option B — Have Docker: self-host locally (fully offline)
-1. Confirm Docker Desktop is actually running (`docker info` should not
-   error — a common miss is having Docker *installed* but not *started*).
-2. In a **separate** folder (not inside this repo):
+### Option B — Self-Hosted Langfuse (requires Docker, fully offline)
+
+1. Confirm Docker Desktop is running: `docker info` should return without
+   error.
+2. In a separate folder (outside this repository):
    ```bash
    git clone https://github.com/langfuse/langfuse.git langfuse-local
    cd langfuse-local
    docker compose up -d
    ```
-3. Wait ~1-2 minutes, then open **http://localhost:3000**, sign up (local
-   account, nothing leaves your machine), create a project, generate keys.
-4. Add to this repo's `.env`:
+3. After 1–2 minutes, open **http://localhost:3000**, create a local
+   account and project, and generate an API key pair.
+4. Add to this repository's `.env`:
    ```
    LANGFUSE_PUBLIC_KEY=pk-lf-...
    LANGFUSE_SECRET_KEY=sk-lf-...
    LANGFUSE_HOST=http://localhost:3000
    ```
 
-   **If `docker compose up -d` fails with a port-already-in-use error**:
-   something else on your machine is using one of Langfuse's ports
-   (5432, 6379, 8123, 9000, 9090, 9091 are the common culprits). Edit
-   `docker-compose.yml` in that `langfuse-local` folder and remap the
-   *left* side of the conflicting `ports:` line to an unused port (e.g.
-   `5432:5432` → `15432:5432`) — the right side must stay unchanged.
+   **Port conflicts:** if `docker compose up -d` reports a port already in
+   use, another process on the machine is occupying one of Langfuse's ports
+   (commonly 5432, 6379, 8123, 9000, 9090, or 9091). Edit `docker-compose.yml`
+   in the `langfuse-local` folder and remap the host side of the conflicting
+   `ports:` entry (e.g. `5432:5432` → `15432:5432`); the container side must
+   stay unchanged.
 
-### Verify Stage 2
+### Verification
 
 ```bash
 python scripts/run_server.py
 ```
-Run a ticket, then open your Langfuse project (Cloud or local) →
-**Tracing → Traces**. You should see a `support_ticket_workflow` trace with
-a nested tree (classify → retrieve/lookup steps → draft → check).
+Run a ticket, then open the Langfuse project (Cloud or local) and navigate to
+**Tracing → Traces**. A `support_ticket_workflow` trace should appear with a
+nested span tree (classify → retrieve/lookup → draft → check).
 
 ---
 
-## 4. Stage 3 — `llm-judge-eval` (adds LLM-as-a-judge)
+## 4. Stage 3 — `llm-judge-eval`
 
 ```bash
 git checkout llm-judge-eval
 pip install -e .
 ```
 
-One-time seeding (safe to re-run anytime):
+One-time setup (safe to re-run):
 
 ```bash
 python scripts/seed_prompts.py
 python scripts/seed_dataset.py
 ```
 
-Run the evaluation:
+Run an evaluation:
 
 ```bash
 python scripts/run_experiment.py --checker-version v1
 python scripts/run_experiment.py --checker-version v2
 ```
 
-Each run prints a `dataset_run_url` — open it to see per-ticket scores.
-In the Langfuse UI: **Datasets → support-tickets-eval → Runs** to compare
-the two runs side by side.
+Each run prints a `dataset_run_url` with per-ticket scores. In the Langfuse
+UI, **Datasets → support-tickets-eval → Runs** shows both runs side by side
+for direct comparison.
 
 ---
 
-## 5. Sanity check at any stage
+## 5. Sanity Check (any stage)
 
 ```bash
 python -m pytest -q
 ```
-Should show all tests passing (7 on `failure-scenarios` and later branches).
-If this fails right after copying the folder to a new machine, it's almost
-always a missed `pip install -e .` after switching branches, or a stale
-`.venv` from the old machine that didn't come with you correctly — delete
-`.venv` and recreate it fresh with the commands in Section 2.
+
+All tests should pass (7, on `failure-scenarios` and later branches). A
+failure immediately after moving to a new machine is almost always a missed
+`pip install -e .` after a branch switch, or a `.venv` that did not transfer
+correctly — delete `.venv` and recreate it using the commands in Section 2.
 
 ---
 
-## Things this guide deliberately does NOT assume
+## Explicit Non-Assumptions
 
-- That you have Docker, or want to install it — Stage 1 needs neither.
-- That `.env.example`'s defaults are fine to change — only `OPENAI_API_KEY`
-  (and later, the Langfuse keys) need to be filled in; everything else is
-  already correct.
-- That "it's taking a while" means something is broken — real LLM calls,
-  especially multi-iteration ones under `v2`, can take 30-90 seconds. Watch
-  the chat UI's live step-by-step activity, not just a spinner.
+- Docker is not assumed or required for Stage 1.
+- `.env.example` defaults are assumed correct as shipped; only
+  `OPENAI_API_KEY` (and later, the Langfuse keys) require values.
+- Longer response times are expected behavior, not a fault — real,
+  multi-iteration LLM calls under `v2` can take 30–90 seconds. The chat UI's
+  live step-by-step activity indicates progress; a static screen for a few
+  seconds between steps is normal.
