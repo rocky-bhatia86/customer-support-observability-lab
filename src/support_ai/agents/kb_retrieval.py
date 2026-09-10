@@ -1,7 +1,8 @@
-"""KBRetrievalAgent: the only agent that calls the KB search tool.
-
-Kept intentionally thin and visible (no hidden abstraction) so that later
-instrumentation can see exactly when and how often retrieval happens.
+"""KBRetrievalAgent: the only agent that calls the knowledge-base search
+tool. Real searches now go through the MCP tool server
+(support_ai.mcp_server); the error-simulation path stays local since
+"simulate_error" is an internal test hook, not something that belongs on
+a tool schema real MCP clients (e.g. Claude Desktop) would see.
 
 failure-scenarios addition (Failure C): retrieval for a specific, known
 ticket id deterministically fails once and succeeds on retry, simulating a
@@ -10,10 +11,17 @@ retrieval call within a run.
 """
 from __future__ import annotations
 
-from support_ai.models import RetrievalResult
+from support_ai.mcp_client import call_tool
+from support_ai.models import KBArticle, RetrievalResult
 from support_ai.tools.kb_search import KBSearchError, search
 
 _SIMULATED_ERROR_TICKET_IDS = {"TCK-002"}
+
+
+def _search_via_mcp(category: str, query: str) -> tuple[list[KBArticle], list[str]]:
+    result = call_tool("search_knowledge_base", {"category": category, "query": query})
+    articles = [KBArticle(**a) for a in result["articles"]]
+    return articles, result["matched_ids"]
 
 
 class KBRetrievalAgent:
@@ -31,7 +39,7 @@ class KBRetrievalAgent:
             try:
                 search(category, query, simulate_error=True)
             except KBSearchError as exc:
-                articles, matched_ids = search(category, query)
+                articles, matched_ids = _search_via_mcp(category, query)
                 return RetrievalResult(
                     query=query,
                     category=category,
@@ -41,7 +49,7 @@ class KBRetrievalAgent:
                     retried=True,
                 )
 
-        articles, matched_ids = search(category, query)
+        articles, matched_ids = _search_via_mcp(category, query)
         return RetrievalResult(
             query=query,
             category=category,
