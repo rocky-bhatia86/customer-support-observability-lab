@@ -1,9 +1,9 @@
 # LAB_PLAN.md — Stop Guessing, Start Measuring
 
 This file documents the baseline (`main`), the controlled production
-failures and MCP tool-calling layered on it, and the Langfuse observability
-stage layered on top of that. It intentionally stops before evaluation
-datasets or LLM-as-a-judge are added.
+failures and MCP tool-calling layered on it, the Langfuse observability
+stage layered on top of that, and finally the LLM-as-a-judge evaluation
+stage layered on top of all of it.
 
 ## Base pipeline
 
@@ -157,8 +157,49 @@ instead of guesswork:**
 See README.md "Langfuse setup" for how to inspect a trace and identify each
 of the four failures directly in the Langfuse UI.
 
+## Evaluation (`llm-judge-eval`, tag `eval-v1`)
+
+Branched from `langfuse-observability`. No agent logic, prompts, routing,
+failure, MCP tool-calling, or tracing behavior was changed -- this stage
+adds an evaluation layer on top of the fully-instrumented system.
+
+**What was added:**
+
+- `support_ai.judge.LLMJudge` scores a completed `WorkflowResult` on 4
+  dimensions (correctness, groundedness, helpfulness, policy_adherence,
+  each 1-5) plus an overall PASS/FAIL, via the same `call_llm` choke point
+  every other agent uses. An escalation is explicitly not scored as an
+  automatic failure -- the judge grades the actual response text.
+- `QualityCheckerAgent`'s `v1`/`v2` system prompts move from Python string
+  constants into real Langfuse **Prompt Management**, fetched by label
+  (`scripts/seed_prompts.py` seeds them; `_fetch_prompt` falls back to the
+  hardcoded text if Langfuse can't serve it, so the checker never breaks).
+  Each `llm_call` generation now links to the exact prompt version that
+  produced it.
+- `data/eval_dataset.json` is populated with per-ticket grading notes for
+  all 6 tickets (previously an empty placeholder), and `scripts/seed_dataset.py`
+  pushes them into a real Langfuse **Dataset** (`support-tickets-eval`).
+- `scripts/run_experiment.py` runs that dataset through the real
+  `WorkflowRunner`, using `langfuse.run_experiment()` for tracing, per-item
+  judge scoring, and run-level aggregates natively -- no hand-rolled eval
+  loop or printed table.
+- `WorkflowResult` gained `trace_id` and `context` fields so the runner can
+  hand both back to the experiment harness for judging and trace linking.
+
+**Observability question this stage finally answers:**
+
+- What is the quality of the final response? (`LLMJudge` scores, visible
+  per-item and aggregated per run in Langfuse's Experiments UI)
+
+Run twice, once per checker version, and compare `checker-v1` vs
+`checker-v2` runs directly in **Datasets -> support-tickets-eval -> Runs**
+-- this is where Failure D becomes a measurable quality regression (lower
+average scores, more PASS -> FAIL flips), not just more retries and
+tokens. See README.md "Evaluation setup" for the exact commands.
+
 ## Explicitly out of scope for this stage
 
-No evaluation dataset population, no LLM-as-a-judge, no dashboard beyond
-`scripts/analyze_traces.py`'s text summary. `data/eval_dataset.json` still
-exists only as an empty placeholder -- it is populated in the next stage.
+No dashboard beyond Langfuse's own Experiments UI and
+`scripts/analyze_traces.py`'s text summary. No automated regression gate
+(e.g. failing CI if a run's average score drops) -- comparing runs is a
+manual step in the Langfuse UI.

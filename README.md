@@ -2,15 +2,15 @@
 
 ### Stop Guessing, Start Measuring
 
-[![Tests](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml/badge.svg?branch=llm-judge-eval-v2)](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml)
+[![Tests](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml/badge.svg?branch=llm-judge-eval)](https://github.com/rocky-bhatia86/customer-support-observability-lab/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
 A hands-on lab for AI observability: a real multi-agent customer support
-system, with real MCP tool-calling, real production failure modes, and now
-real Langfuse tracing layered on top — staged across branches so each
-capability can be studied in isolation. (LLM-as-a-judge evaluation is the
-next stage, on `llm-judge-eval` — not yet on this branch.)
+system, with real MCP tool-calling, real production failure modes, real
+Langfuse tracing, and now a real LLM-as-a-judge evaluator scored against
+real traces — staged across branches so each capability can be studied in
+isolation.
 
 Ask it something in the chat UI and watch a live orchestrator dynamically
 route your ticket through whichever of 7 specialist agents it actually
@@ -23,7 +23,7 @@ like a production agentic system would, with every step traced.
 ## Quickstart
 
 ```bash
-git checkout langfuse-observability
+git checkout llm-judge-eval
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 cp .env.example .env                # set OPENAI_API_KEY
@@ -32,7 +32,8 @@ python scripts/run_server.py
 
 Open **http://localhost:8000** — this works with tracing fully disabled
 (all three `LANGFUSE_*` variables blank). To turn tracing on, see
-"Langfuse setup" below.
+"Langfuse setup" below. To run the LLM-as-a-judge evaluation, see
+"Evaluation setup" below.
 
 **Full step-by-step instructions across every stage are in
 [`SETUP.md`](SETUP.md).** The design rationale and the story behind each
@@ -45,8 +46,8 @@ Each branch adds exactly one capability on top of the previous one:
 | Branch | Adds |
 |---|---|
 | `main` | The full dynamic multi-agent system: MCP-based tool calling, a real chat UI, and 4 controlled production failures |
-| `langfuse-observability` (this branch) | Real tracing (Langfuse), layered on the same code |
-| `llm-judge-eval` | LLM-as-a-judge evaluation, Langfuse Prompt Management, and Datasets/Experiments |
+| `langfuse-observability` | Real tracing (Langfuse), layered on the same code |
+| `llm-judge-eval` (this branch) | LLM-as-a-judge evaluation, Langfuse Prompt Management, and Datasets/Experiments |
 
 Start at `main` — it already includes the full agent system and failure
 scenarios, so every later branch builds on a complete, working base.
@@ -86,10 +87,12 @@ pytest -q
 ```
 
 Tests never call a real LLM — `call_llm` is monkeypatched, so `pytest` runs
-without network access or an API key. Langfuse tracing is also safe to
-leave disabled during tests. The MCP server subprocess does start for real
-during tests (tool lookups are not mocked), which is why the first test run
-is slightly slower than later ones. This is also why CI needs no secrets.
+without network access or an API key. Langfuse tracing and prompt fetching
+are also safe to leave disabled/unseeded during tests (the checker falls
+back to the hardcoded prompt text). The MCP server subprocess does start
+for real during tests (tool lookups are not mocked), which is why the first
+test run is slightly slower than later ones. This is also why CI needs no
+secrets.
 
 ## License
 
@@ -206,3 +209,45 @@ self-hosted instance without default model definitions loaded, cost will
 show as unavailable until you add that model's real per-token pricing
 under Project Settings -> Models in the Langfuse UI. This lab does not
 hard-code or guess any per-token price in application code.
+
+## Evaluation setup
+
+This branch adds an `LLMJudge` (`support_ai.judge`) that scores a completed
+ticket on 4 dimensions (correctness, groundedness, helpfulness, policy
+adherence) plus an overall PASS/FAIL, using the same `call_llm` choke point
+as every other agent. The checker's `v1`/`v2` prompts move from Python
+string constants into real Langfuse **Prompt Management** entries (fetched
+by label, falling back to the hardcoded text if Langfuse is unreachable),
+and the eval tickets live in a real Langfuse **Dataset**, run through
+`langfuse.run_experiment()` — replacing what would otherwise be a
+hand-rolled loop and a printed table with Langfuse's own Experiments UI.
+
+One-time setup (safe to re-run — each run creates a new prompt version or
+dataset item, it never deletes anything):
+
+```bash
+python scripts/seed_prompts.py    # pushes v1/v2 checker prompts into Langfuse
+python scripts/seed_dataset.py    # pushes the 6 eval tickets into a Langfuse Dataset
+```
+
+Run an experiment:
+
+```bash
+python scripts/run_experiment.py --checker-version v1
+python scripts/run_experiment.py --checker-version v2
+```
+
+Each run prints a Langfuse run URL. Open **Datasets -> support-tickets-eval
+-> Runs** to compare `checker-v1` and `checker-v2` runs side by side —
+this is where Failure D ("last week's prompt bump") becomes a measurable
+quality regression (lower average scores, more PASS→FAIL flips), not just
+more retries.
+
+### How the judge avoids penalizing honest escalations
+
+`TCK-005` deliberately has no exact refund-timeline figure on file. An
+`ESCALATED_MAX_ITERATIONS` outcome for that ticket is not automatically a
+failure — the judge is told explicitly to grade the actual response text
+(is the escalation message itself honest and helpful?), not the
+RESOLVED/ESCALATED label. See `data/eval_dataset.json`'s per-ticket notes
+for what a good response looks like for each of the 6 tickets.
