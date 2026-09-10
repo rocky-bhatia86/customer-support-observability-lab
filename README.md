@@ -197,18 +197,32 @@ verdicts, more iterations, and higher token usage under `v2` for the same
 ticket set -- this is the "last week's model bump changed behavior,
 now proven with data" scenario.
 
-### Cost tracking limitations
+### Cost tracking
 
 Every `llm_call` generation records real `usage_details` (`input`/`output`/
 `total` tokens) taken directly from the OpenAI response -- these are never
 estimated or invented. Langfuse computes **cost** server-side by matching
 the generation's `model` name against a pricing table configured in your
-Langfuse project. Common OpenAI models (e.g. `gpt-4o-mini`) have default
-pricing in Langfuse Cloud; if you use a different/custom model name, or a
-self-hosted instance without default model definitions loaded, cost will
-show as unavailable until you add that model's real per-token pricing
-under Project Settings -> Models in the Langfuse UI. This lab does not
-hard-code or guess any per-token price in application code.
+Langfuse project. Common OpenAI models -- including `gpt-4o-mini`, this
+lab's default -- already have default pricing in both Langfuse Cloud and
+self-hosted deployments, so cost is computed automatically with zero setup;
+`scripts/analyze_traces.py` reports it as a real dollar figure, not an
+estimate. If you point `MODEL_NAME` at a custom/self-hosted model name that
+Langfuse doesn't recognize, cost will show as unavailable until you add
+that model's real per-token pricing under Project Settings -> Models in the
+Langfuse UI. This lab does not hard-code or guess any per-token price in
+application code.
+
+### Langfuse v4 events_only mode
+
+Self-hosted Langfuse v4 deployments run in "events_only" write mode by
+default, which disables the legacy `GET /api/public/traces` and
+`GET /api/public/observations` (v1) query endpoints entirely --
+`scripts/analyze_traces.py` uses the Observations v2 API
+(`client.api.observations.get_many(..., fields=...)`, backed by
+`GET /api/public/v2/observations`) instead, which works on both events_only
+and legacy-write deployments. If you fork this script to query traces/cost
+data yourself, use the v2 observations client, not `client.api.trace.list`.
 
 ## Evaluation setup
 
